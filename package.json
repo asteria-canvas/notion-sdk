@@ -1,6 +1,6 @@
 {
   "name": "notion-sdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Reusable Notion-as-CMS helpers: client factory, typed property extraction, block fetching, rich text rendering.",
   "type": "module",
   "sideEffects": false,

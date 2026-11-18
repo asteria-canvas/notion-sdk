@@ -1,5 +1,5 @@
 import * as _notionhq_client_build_src_api_endpoints from '@notionhq/client/build/src/api-endpoints';
-import { BlockObjectResponse, GroupFilterOperatorArray, PropertyFilter, TimestampFilter, PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
+import { BlockObjectResponse, GroupFilterOperatorArray, PropertyFilter, TimestampFilter, TableRowBlockObjectResponse, PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
 export { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
 import * as _notionhq_client from '@notionhq/client';
 import { Client } from '@notionhq/client';
@@ -48,6 +48,8 @@ declare function createNotion<TSources extends Record<string, string>>(config: N
     getBlocks: (blockId: string) => Promise<_notionhq_client.ListBlockChildrenResponse>;
     /** Fetches a block's children recursively, paginating and attaching `children`. */
     getBlocksDeep: (blockId: string) => Promise<BlockWithChildren[]>;
+    /** Fetches all rows of a `table` block (paginated). */
+    getTableRows: (tableBlockId: string) => Promise<TableRowBlockObjectResponse[]>;
 };
 type Notion<TSources extends Record<string, string>> = ReturnType<typeof createNotion<TSources>>;
 
@@ -90,4 +92,48 @@ type RichTextItem = {
  */
 declare function renderRichText(richText: RichTextItem[], options?: RenderRichTextOptions): string;
 
-export { type BlockWithChildren, type GetSlugOptions, type Notion, type NotionConfig, type QueryParams, type RenderRichTextOptions, createNotion, getCoverUrl, getIcon, getProp, getSlug, renderRichText, slugify };
+type PlainRichText = {
+    plain_text: string;
+};
+type ImageBlock = Extract<BlockObjectResponse, {
+    type: "image";
+}>;
+/** Joins rich text into plain text (no HTML). */
+declare function getPlainText(richText: PlainRichText[]): string;
+/** Anchor id for a heading, derived from its text. Matches `slugify`. */
+declare function getHeadingId(richText: PlainRichText[]): string;
+type GroupedBlock<T extends BlockObjectResponse = BlockObjectResponse> = {
+    type: "bulleted_list";
+    items: T[];
+} | {
+    type: "numbered_list";
+    items: T[];
+} | {
+    type: "single";
+    block: T;
+};
+/**
+ * Groups consecutive list items into one bulleted/numbered list so renderers
+ * can emit a single <ul>/<ol>. All other blocks pass through as "single".
+ * Does not mutate the input.
+ */
+declare function groupBlocks<T extends BlockObjectResponse>(blocks: T[]): GroupedBlock<T>[];
+/** Rich text of a bulleted/numbered list item; empty for any other block. */
+declare function getListItemRichText(block: BlockObjectResponse): _notionhq_client.RichTextItemResponse[];
+type ParsedImage = {
+    src: string;
+    /** Caption text with any trailing `| url` link removed. */
+    caption: string;
+    /** Link target, or null when the image isn't linked. */
+    href: string | null;
+};
+/**
+ * Extracts src, caption and link from an image block.
+ *
+ * The Notion API doesn't expose an image's native link, so the href comes from
+ * the caption: "Caption text | https://example.com" (the URL is stripped from
+ * the displayed caption), otherwise a link set on the caption text itself.
+ */
+declare function parseImageBlock(block: ImageBlock): ParsedImage;
+
+export { type BlockWithChildren, type GetSlugOptions, type GroupedBlock, type ImageBlock, type Notion, type NotionConfig, type ParsedImage, type QueryParams, type RenderRichTextOptions, createNotion, getCoverUrl, getHeadingId, getIcon, getListItemRichText, getPlainText, getProp, getSlug, groupBlocks, parseImageBlock, renderRichText, slugify };

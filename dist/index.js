@@ -55,7 +55,26 @@ function createNotion(config) {
       return await getClient().blocks.children.list({ block_id: blockId, page_size: 100 });
     },
     /** Fetches a block's children recursively, paginating and attaching `children`. */
-    getBlocksDeep
+    getBlocksDeep,
+    /** Fetches all rows of a `table` block (paginated). */
+    getTableRows: async (tableBlockId) => {
+      const rows = [];
+      let cursor;
+      do {
+        const res = await getClient().blocks.children.list({
+          block_id: tableBlockId,
+          page_size: 100,
+          start_cursor: cursor
+        });
+        rows.push(
+          ...res.results.filter(
+            (b) => "type" in b && b.type === "table_row"
+          )
+        );
+        cursor = res.has_more ? res.next_cursor ?? void 0 : void 0;
+      } while (cursor);
+      return rows;
+    }
   };
 }
 
@@ -145,12 +164,57 @@ function renderRichText(richText, options = {}) {
     return text;
   }).join("");
 }
+
+// src/blocks.ts
+function getPlainText(richText) {
+  return richText.map((t) => t.plain_text).join("");
+}
+function getHeadingId(richText) {
+  return slugify(getPlainText(richText));
+}
+function groupBlocks(blocks) {
+  const grouped = [];
+  for (const block of blocks) {
+    if (block.type === "bulleted_list_item" || block.type === "numbered_list_item") {
+      const listType = block.type === "bulleted_list_item" ? "bulleted_list" : "numbered_list";
+      const last = grouped[grouped.length - 1];
+      if (last?.type === listType) {
+        last.items.push(block);
+      } else {
+        grouped.push({ type: listType, items: [block] });
+      }
+    } else {
+      grouped.push({ type: "single", block });
+    }
+  }
+  return grouped;
+}
+function getListItemRichText(block) {
+  if (block.type === "bulleted_list_item") return block.bulleted_list_item.rich_text;
+  if (block.type === "numbered_list_item") return block.numbered_list_item.rich_text;
+  return [];
+}
+function parseImageBlock(block) {
+  const src = block.image.type === "file" ? block.image.file.url : block.image.external.url;
+  const rawCaption = getPlainText(block.image.caption);
+  const pipe = rawCaption.lastIndexOf("|");
+  const piped = pipe >= 0 ? rawCaption.slice(pipe + 1).trim() : "";
+  const hasPipedHref = /^(https?:\/\/|\/)\S+$/.test(piped);
+  const caption = hasPipedHref ? rawCaption.slice(0, pipe).trim() : rawCaption;
+  const href = hasPipedHref ? piped : block.image.caption.find((t) => t.href)?.href ?? null;
+  return { src, caption, href };
+}
 export {
   createNotion,
   getCoverUrl,
+  getHeadingId,
   getIcon,
+  getListItemRichText,
+  getPlainText,
   getProp,
   getSlug,
+  groupBlocks,
+  parseImageBlock,
   renderRichText,
   slugify
 };

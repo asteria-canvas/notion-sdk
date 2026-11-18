@@ -3,6 +3,7 @@ import type {
   BlockObjectResponse,
   GroupFilterOperatorArray,
   PropertyFilter,
+  TableRowBlockObjectResponse,
   TimestampFilter,
 } from "@notionhq/client/build/src/api-endpoints";
 
@@ -104,6 +105,26 @@ export function createNotion<TSources extends Record<string, string>>(
 
     /** Fetches a block's children recursively, paginating and attaching `children`. */
     getBlocksDeep,
+
+    /** Fetches all rows of a `table` block (paginated). */
+    getTableRows: async (tableBlockId: string): Promise<TableRowBlockObjectResponse[]> => {
+      const rows: TableRowBlockObjectResponse[] = [];
+      let cursor: string | undefined;
+      do {
+        const res = await getClient().blocks.children.list({
+          block_id: tableBlockId,
+          page_size: 100,
+          start_cursor: cursor,
+        });
+        rows.push(
+          ...res.results.filter(
+            (b): b is TableRowBlockObjectResponse => "type" in b && b.type === "table_row",
+          ),
+        );
+        cursor = res.has_more ? (res.next_cursor ?? undefined) : undefined;
+      } while (cursor);
+      return rows;
+    },
   };
 }
 

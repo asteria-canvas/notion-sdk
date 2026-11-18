@@ -8,7 +8,7 @@ extraction, recursive block fetching, slug helpers and rich text rendering.
 Installed from git; pin to a tag.
 
 ```bash
-pnpm add github:asteria-canvas/notion-sdk#v0.1.0
+pnpm add github:asteria-canvas/notion-sdk#v0.2.0
 ```
 
 `@notionhq/client` (v5) is a peer dependency, so install it in the consumer too.
@@ -38,6 +38,21 @@ SDK itself never touches `import.meta.env` or `process.env`.
 
 `getProp`, `slugify`, `getSlug(page, { slugKey, titleKey })`, `getCoverUrl`,
 `getIcon`, `renderRichText(richText, { linkClass })`.
+
+### Block helpers (framework-agnostic)
+
+Logic for turning fetched blocks into markup, without tying you to a framework
+or a design. Render the result with whatever components or templates you use.
+
+- `groupBlocks(blocks)`: groups consecutive list items into `bulleted_list` /
+  `numbered_list` groups (others are `single`), so you can emit one `<ul>`/`<ol>`.
+- `getListItemRichText(block)`: rich text of a list item.
+- `getHeadingId(richText)` / `getPlainText(richText)`: heading anchor ids and plain text.
+- `parseImageBlock(block)`: `{ src, caption, href }`. Notion's API doesn't expose an
+  image's native link, so the link comes from the caption: `Caption | https://example.com`
+  (or a link set on the caption text).
+- `notion.getTableRows(tableBlockId)`: all rows of a `table` block, paginated.
+  `getBlocksDeep` skips tables, so fetch their rows with this.
 
 ## Development
 
